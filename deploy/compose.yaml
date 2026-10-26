@@ -1,0 +1,18 @@
+# docker compose for the Synology NAS. Copy next to a .env file (see .env.example).
+services:
+  catsed:
+    image: ghcr.io/${GITHUB_OWNER:?set GITHUB_OWNER in .env}/catsed:latest
+    restart: unless-stopped
+    # Claimed Transfers get this long to finish on `docker compose up -d` / restart.
+    stop_grace_period: 120s
+    ports:
+      # Publish on the LAN address only; the Synology firewall should let just the
+      # router's nginx reach it. The metrics port (9090) is deliberately not published.
+      - "${NAS_LAN_IP:?set NAS_LAN_IP in .env}:8080:8080"
+    environment:
+      CATSED_PUBLIC_URL: ${CATSED_PUBLIC_URL:?set CATSED_PUBLIC_URL in .env}
+      CATSED_TRUSTED_PROXY: ${CATSED_TRUSTED_PROXY:?set CATSED_TRUSTED_PROXY in .env}
+      CATSED_MAX_RATE: ${CATSED_MAX_RATE:-}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
