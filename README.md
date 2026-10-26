@@ -39,6 +39,23 @@ catsed must sit behind an **L4 (`stream`) proxy, not an HTTP reverse proxy**: ng
 2. **NAS.** Copy [`deploy/compose.yaml`](deploy/compose.yaml) and [`deploy/.env.example`](deploy/.env.example) (renamed to `.env`) to the NAS, fill in `.env`, then `docker compose up -d`. In the Synology firewall, allow port 8080 only from the nginx container's IP.
 3. **Router.** Add [`deploy/nginx/catsed-stream.conf`](deploy/nginx/catsed-stream.conf) at the top level of nginx.conf (outside `http {}`); it needs the stream module (OpenWrt: `nginx-mod-stream`). If 443 is shared with other HTTPS sites, use [`catsed-stream-sni.conf`](deploy/nginx/catsed-stream-sni.conf) instead, which also needs `--with-stream_realip_module`. Forward only 443 (and 80 if the router renews Let's Encrypt itself) to it.
 
+   ```nginx
+   stream {
+       server {
+           listen 443 ssl;
+           ssl_certificate     /etc/nginx/certs/catsed/fullchain.pem;
+           ssl_certificate_key /etc/nginx/certs/catsed/privkey.pem;
+           ssl_protocols       TLSv1.2 TLSv1.3;
+
+           proxy_pass     192.168.1.10:8080;   # the NAS
+           proxy_protocol on;                  # tells catsed the real client IP
+           proxy_timeout  120s;                # longer than catsed's 30s heartbeat
+       }
+   }
+   ```
+
+   Set `CATSED_TRUSTED_PROXY` to the nginx container's IP so catsed accepts the PROXY protocol header.
+
 Deploying restarts the single instance ([ADR 0001](docs/adr/0001-single-replica.md)): Transfers still waiting for a Receiver are closed with "please resend", and Claimed ones get up to 120s to finish.
 
 ## Configuration
